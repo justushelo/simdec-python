@@ -58,7 +58,6 @@ dev = [
     "simdec[doc,test,dashboard]",
     "watchfiles",
     "pre-commit",
-    "hatch",
 ]
 
 [project.urls]
