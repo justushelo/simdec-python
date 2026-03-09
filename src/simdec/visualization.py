@@ -1,7 +1,7 @@
 import copy
 import functools
 import itertools
-from typing import Literal
+from typing import Literal, Optional
 
 import colorsys
 import matplotlib as mpl
@@ -135,10 +135,16 @@ def palette(
 def visualization(
     *,
     bins: pd.DataFrame,
+    bins2: Optional[pd.DataFrame] = None,
     palette: list[list[float]],
     n_bins: str | int = "auto",
     kind: Literal["histogram", "boxplot"] = "histogram",
     ax=None,
+    output_name: str = "Output 1",
+    output_name2: str = "Output 2",
+    xlim: Optional[tuple[float, float]] = None,
+    ylim: Optional[tuple[float, float]] = None,
+    r_scatter: float = 1.0,
 ) -> plt.Axes:
     """Histogram plot of scenarios.
 
@@ -146,6 +152,8 @@ def visualization(
     ----------
     bins : DataFrame
         Multidimensional bins.
+    bins2 : DataFrame
+        Multidimensional bins for output 2
     palette : list of int of size (n, 4)
         List of colours corresponding to scenarios.
     n_bins : str or int
@@ -154,15 +162,84 @@ def visualization(
         Histogram or Box Plot.
     ax : Axes, optional
         Matplotlib axis.
+    output_name : str, default "Output 1"
+        Name of the primary output variable.
+    output_name2 : str, default "Output 2"
+        Name of the second output variable.
+    xlim : tuple of float, optional
+        Minimum and maximum values for the x-axis (Output 1).
+    ylim : tuple of float, optional
+        Minimum and maximum values for the y-axis (Output 2).
+    r_scatter : float, default 1.0
+        The portion of data points displayed on the scatter plot (0 to 1).
 
     Returns
     -------
+    axs : Axes
+        Matplotlib axis for two-output graph.
     ax : Axes
         Matplotlib axis.
 
     """
     # needed to get the correct stacking order
     bins.columns = pd.RangeIndex(start=len(bins.columns), stop=0, step=-1)
+
+    if bins2 is not None:
+        fig, axs = plt.subplots(2, 2, sharex="col", sharey="row", figsize=(8, 8))
+        axs[0, 1].axis("off")
+
+        sns.histplot(
+            bins,
+            multiple="stack",
+            stat="probability",
+            palette=palette,
+            common_bins=True,
+            common_norm=True,
+            bins=n_bins,
+            legend=False,
+            ax=axs[0, 0],
+        )
+        axs[0, 0].set_xlim(xlim)
+        axs[0, 0].set_box_aspect(1)
+        axs[0, 0].axis("off")
+
+        data = pd.concat([pd.melt(bins), pd.melt(bins2)["value"]], axis=1)
+        data.columns = ["c", "x", "y"]
+
+        if r_scatter < 1.0:
+            data = data.sample(frac=r_scatter)
+
+        sns.scatterplot(
+            data=data,
+            x="x",
+            y="y",
+            hue="c",
+            palette=palette,
+            ax=axs[1, 0],
+            legend=False,
+        )
+        axs[1, 0].set(xlabel=output_name, ylabel=output_name2)
+        axs[1, 0].set_box_aspect(1)
+
+        sns.histplot(
+            data,
+            y="y",
+            hue="c",
+            multiple="stack",
+            stat="probability",
+            palette=palette,
+            common_bins=True,
+            common_norm=True,
+            bins=40,
+            legend=False,
+            ax=axs[1, 1],
+        )
+        axs[1, 1].set_ylim(ylim)
+        axs[1, 1].set_box_aspect(1)
+        axs[1, 1].axis("off")
+
+        fig.subplots_adjust(wspace=-0.015, hspace=0)
+        return axs[1, 0]
 
     if kind == "histogram":
         ax = sns.histplot(
