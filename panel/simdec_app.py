@@ -41,55 +41,30 @@ template = pn.template.FastGridTemplate(
     # save_layout=True,
 )
 
-
-def _validate_csv_bytes(raw_bytes):
-    """Pre-parse validation. Returns an error string or None."""
-    try:
-        first_line = raw_bytes.decode("utf-8").split("\n")[0].strip()
-    except UnicodeDecodeError:
-        return "File encoding error. Please use files in UTF-8."
-
-    if "," not in first_line:
-        detected = (
-            "Semicolons(';')"
-            if ";" in first_line
-            else "tabs"
-            if "\t" in first_line
-            else "Unknown delimiter"
-        )
-        return f"Wrong column delimiter {detected}. Save the data with commas ',' as the delimiter"
-
-    col_names = [c.strip().strip('"').strip("'") for c in first_line.split(",")]
-    bad_cols = [c for c in col_names if re.search(r"[^A-Za-z0-9_ \-.]", c)]
-    if bad_cols:
-        return (
-            f"Special characters found in column name(s): {bad_cols}."
-            f"Column names may contain only letters, numbers and underscores."
-            f"Please rename columns {bad_cols} before uploading data again."
-        )
-    return None
+VALID_CHARACTERS = re.compile(r"[A-Za-z0-9_ \-.]")
+GENERIC_ERROR_MSG = (
+    "Could not parse the CSV file. "
+    "Please check that it uses commas ',' as the delimiter "
+    "and that column names contain no special characters."
+)
 
 
 @pn.cache
 def load_data(text_fname):
     if text_fname is None:
         return pd.read_csv("tests/data/stress.csv")
-
-    raw_bytes = bytes(text_fname)
-
-    # Run pre-validation
-    error = _validate_csv_bytes(raw_bytes)
-    if error:
-        pn.state.notifications.error(error, duration=0)
-        return None
-
-    # Try parsing
     try:
-        text_fname = io.BytesIO(text_fname)
-        return pd.read_csv(text_fname)
-    except Exception as e:
-        pn.state.notifications.error(f"Could not parse CSV {e}.", duration=0)
-        return None
+        raw = bytes(text_fname)
+        first_line = raw.decode("utf-8").split("\n")[0].strip()
+        if "," not in first_line:
+            raise ValueError("No comma delimiter")
+        col_names = [c.strip().strip('"').strip("'") for c in first_line.split(",")]
+        if any(VALID_CHARACTERS.search(c) for c in col_names):
+            raise ValueError("Bad column names")
+        return pd.read_csv(io.BytesIO(raw))
+    except Exception:
+        pn.state.notifications.error(GENERIC_ERROR_MSG, duration=0)
+        return pd.read_csv("tests/data/stress.csv")
 
 
 @pn.cache
