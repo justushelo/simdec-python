@@ -41,7 +41,7 @@ template = pn.template.FastGridTemplate(
     # save_layout=True,
 )
 
-VALID_CHARACTERS = re.compile(r"[A-Za-z0-9_ \-.]")
+VALID_CHARACTERS = re.compile(r"[^A-Za-z0-9_ \-.]")
 GENERIC_ERROR_MSG = (
     "Could not parse the CSV file. "
     "Please check that it uses commas ',' as the delimiter "
