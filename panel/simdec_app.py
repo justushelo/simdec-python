@@ -1,5 +1,6 @@
 import bisect
 import io
+from pathlib import Path
 import re
 
 from bokeh.models import PrintfTickFormatter
@@ -42,6 +43,10 @@ template = pn.template.FastGridTemplate(
 )
 
 VALID_CHARACTERS = re.compile(r"[^A-Za-z0-9_ \-.]")
+try:
+    DEFAULT_STRESS_CSV = Path(__file__).resolve().parent / "data" / "stress.csv"
+except NameError:
+    DEFAULT_STRESS_CSV = Path("data/stress.csv")
 GENERIC_ERROR_MSG = (
     "Could not parse the CSV file. "
     "Please check that it uses commas ',' as the delimiter "
@@ -52,7 +57,7 @@ GENERIC_ERROR_MSG = (
 @pn.cache
 def load_data(text_fname):
     if text_fname is None:
-        return pd.read_csv("tests/data/stress.csv")
+        return pd.read_csv(DEFAULT_STRESS_CSV)
     try:
         raw = bytes(text_fname)
         first_line = raw.decode("utf-8").split("\n")[0].strip()
@@ -64,7 +69,6 @@ def load_data(text_fname):
         return pd.read_csv(io.BytesIO(raw))
     except Exception:
         pn.state.notifications.error(GENERIC_ERROR_MSG, duration=0)
-        return pd.read_csv("tests/data/stress.csv")
 
 
 @pn.cache
@@ -87,13 +91,13 @@ def column_output(data):
 @pn.cache
 def filtered_data(data, output_name):
     if data is None or not output_name:
-        return pd.Series(dtype=float)
+        return pd.DataFrame()
     try:
+        if isinstance(output_name, str):
+            return data[[output_name]]
         return data[output_name]
     except KeyError:
-        if isinstance(output_name, list):
-            return data.iloc[:, [0]]
-        return data.iloc[:, 0]
+        return data.iloc[:, [0]]
 
 
 @pn.cache
