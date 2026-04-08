@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 1. Setup paths and environment
+# Setup paths and environment
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
@@ -50,8 +50,12 @@ WHEEL_FILENAME=$(basename "${SIMDEC_WHEEL_PATH}")
 OUT_DIR="dist/pyodide"
 mkdir -p "${OUT_DIR}/_static"
 
-# IMPORTANT: Copy the wheel into the output directory so it's accessible via HTTP
+# Copy the wheel into the output directory so it's accessible via HTTP
 cp "${SIMDEC_WHEEL_PATH}" "${OUT_DIR}/"
+
+echo "Checking file existence..."
+ls -R panel/
+ls -l dist/*.whl
 
 # Convert Panel apps to Pyodide worker
 echo "Converting Panel apps to Pyodide worker output..."
