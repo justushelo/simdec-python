@@ -5,6 +5,6 @@
   "description": "Static Panel WASM build wrapper",
   "scripts": {
     "build": "bash ./scripts/build_wasm.sh",
-    "serve": "python -m http.server 8000 --directory dist/pyodide"
+    "serve": "python3 -m http.server 8000 --directory dist/pyodide"
   }
 }
