@@ -202,13 +202,14 @@ def two_output_visualization(
     r_scatter: float = 1.0,
 ) -> tuple[plt.Figure, np.ndarray]:
     """Two-output visualization.
+
     Produces a 2x2 figure
     * top-left    : stacked histogram for *output 1* (axes hidden)
     * bottom-left : scatter of output 1 vs output 2, coloured by scenario
     * bottom-right: rotated stacked histogram for *output 2* (axes hidden)
     * top-right   : empty
 
-        Parameters
+    Parameters
     ----------
     bins : DataFrame
         Multidimensional bins for the primary output.
