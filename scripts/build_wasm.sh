@@ -62,11 +62,11 @@ echo "Converting Panel apps to Pyodide worker output..."
 export PYTHONPATH="${ROOT_DIR}/src:${PYTHONPATH:-}"
 
 # Use the full path for the requirements so the converter can find the file
-"${PYTHON_BIN}" -m panel convert panel/simdec_app.py panel/sampling.py \
+"${PYTHON_BIN}" -m panel convert "${ROOT_DIR}/panel/simdec_app.py" "${ROOT_DIR}/panel/sampling.py" \
     --to pyodide-worker \
     --out "${OUT_DIR}" \
-    --requirements "${SIMDEC_WHEEL_PATH}" numpy pandas matplotlib seaborn scipy SALib \
-    --resources panel/data/stress.csv
+    --requirements "${ROOT_DIR}/${SIMDEC_WHEEL_PATH}" numpy pandas matplotlib seaborn scipy SALib \
+    --resources "${ROOT_DIR}/panel/data/stress.csv"
 
 # Copy custom index page and static assets
 echo "Copying custom index page and static assets..."
