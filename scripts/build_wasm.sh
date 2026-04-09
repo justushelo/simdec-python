@@ -47,8 +47,8 @@ fi
 
 WHEEL_FILENAME=$(basename "${SIMDEC_WHEEL_PATH}")
 
-# Prepare output directory
-OUT_DIR="dist/pyodide"
+# Prepare output directory - USE ABSOLUTE PATH
+OUT_DIR="${ROOT_DIR}/dist/pyodide"
 mkdir -p "${OUT_DIR}/_static"
 mkdir -p "${OUT_DIR}/data"
 mkdir -p "${OUT_DIR}/panel/data"
@@ -56,14 +56,11 @@ mkdir -p "${OUT_DIR}/panel/data"
 # Copy the wheel into the output directory so it's accessible via HTTP
 cp "${SIMDEC_WHEEL_PATH}" "${OUT_DIR}/"
 
-echo "Checking file existence..."
-ls -R panel/
-ls -l dist/*.whl
-
 # Copy the assets to where the Python scripts expect them
 mkdir -p panel/_static
 if [ -d "docs/_static" ]; then
-  cp -r docs/_static/* panel/_static/
+  # Use || true to prevent failure if it's empty
+  cp -r docs/_static/* panel/_static/ || true
 fi
 
 echo "Converting Panel apps to Pyodide worker output..."
@@ -75,11 +72,29 @@ cd "${ROOT_DIR}/panel"
 # Bring the wheel into the current folder so we can pass just the filename
 cp "${ROOT_DIR}/${SIMDEC_WHEEL_PATH}" .
 
+# Safe file checking that won't trigger set -e
+echo "Checking necessary files locally before conversion..."
+if [[ ! -f "simdec_app.py" ]]; then echo "Warning: simdec_app.py not found in panel directory!"; fi
+if [[ ! -f "sampling.py" ]]; then echo "Warning: sampling.py not found in panel directory!"; fi
+
+# Ensure data/stress.csv exists relative to the current 'panel' dir
+if [[ ! -f "data/stress.csv" ]]; then
+    echo "Warning: panel/data/stress.csv missing."
+    if [[ -f "../data/stress.csv" ]]; then
+        echo "Found stress.csv in root. Copying to panel/data..."
+        mkdir -p data
+        cp "../data/stress.csv" data/
+    else
+        echo "Error: stress.csv not found anywhere! Conversion may fail."
+    fi
+fi
+
+# Run conversion
 "${PYTHON_BIN}" -m panel convert \
     simdec_app.py \
     sampling.py \
     --to pyodide-worker \
-    --out "${ROOT_DIR}/${OUT_DIR}" \
+    --out "${OUT_DIR}" \
     --requirements "${WHEEL_FILENAME}" numpy pandas matplotlib seaborn scipy SALib \
     --resources data/stress.csv
 
@@ -94,7 +109,7 @@ echo "Copying custom index page and static assets..."
 
 # Copy images/thumbnails from docs/_static if they exist
 if [ -d "docs/_static" ]; then
-    cp -r docs/_static/* "${OUT_DIR}/_static/"
+    cp -r docs/_static/* "${OUT_DIR}/_static/" || true
 fi
 
 # Overwrite default index.html with your custom homepage
