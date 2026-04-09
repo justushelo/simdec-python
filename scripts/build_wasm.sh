@@ -69,16 +69,22 @@ fi
 echo "Converting Panel apps to Pyodide worker output..."
 export PYTHONPATH="${ROOT_DIR}/src:${PYTHONPATH:-}"
 
-# Change directory into 'panel' so relative paths resolve correctly!
+# Change directory into 'panel' so relative paths resolve correctly
 cd "${ROOT_DIR}/panel"
+
+# Bring the wheel into the current folder so we can pass just the filename
+cp "${ROOT_DIR}/${SIMDEC_WHEEL_PATH}" .
 
 "${PYTHON_BIN}" -m panel convert \
     simdec_app.py \
     sampling.py \
     --to pyodide-worker \
     --out "${ROOT_DIR}/${OUT_DIR}" \
-    --requirements "${ROOT_DIR}/${SIMDEC_WHEEL_PATH}" numpy pandas matplotlib seaborn scipy SALib \
-    --resources "${ROOT_DIR}/panel/data/stress.csv"
+    --requirements "${WHEEL_FILENAME}" numpy pandas matplotlib seaborn scipy SALib \
+    --resources data/stress.csv
+
+# Clean up the copied wheel
+rm "${WHEEL_FILENAME}"
 
 # Step back out to the root directory for the rest of the script
 cd "${ROOT_DIR}"
