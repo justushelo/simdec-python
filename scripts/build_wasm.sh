@@ -78,7 +78,7 @@ cd "${ROOT_DIR}/panel"
     --to pyodide-worker \
     --out "${ROOT_DIR}/${OUT_DIR}" \
     --requirements "${ROOT_DIR}/${SIMDEC_WHEEL_PATH}" numpy pandas matplotlib seaborn scipy SALib \
-    --resources data/stress.csv
+    --resources "${ROOT_DIR}/panel/data/stress.csv"
 
 # Step back out to the root directory for the rest of the script
 cd "${ROOT_DIR}"
