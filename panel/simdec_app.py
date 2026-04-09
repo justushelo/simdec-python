@@ -28,7 +28,7 @@ blue_color = "#4099da"
 template = pn.template.FastGridTemplate(
     title="Simulation Decomposition Dashboard",
     # logo="_static/logo.gif",
-    # favicon="_static/favicon.png",
+    favicon="_static/favicon.png",
     meta_description="Simulation Decomposition",
     meta_keywords=(
         "Sensitivity Analysis, Visualization, Data Analysis, Auditing, "

@@ -58,6 +58,12 @@ echo "Checking file existence..."
 ls -R panel/
 ls -l dist/*.whl
 
+# Copy the assets to where the Python scripts expect them
+mkdir -p panel/_static
+if [ -d "docs/_static" ]; then
+  cp -r docs/_static/* panel/_static/
+fi
+
 # Convert Panel apps to Pyodide worker
 echo "Converting Panel apps to Pyodide worker output..."
 export PYTHONPATH="${ROOT_DIR}/src:${PYTHONPATH:-}"
