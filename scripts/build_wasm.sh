@@ -38,7 +38,6 @@ rm -rf dist/*.whl
 "${PYTHON_BIN}" -m build --wheel .
 
 # Identify the generated wheel file
-# This prevents the "unbound variable" error by checking if the file exists
 SIMDEC_WHEEL_PATH=$(ls dist/*.whl | head -n 1 || echo "")
 
 if [[ -z "${SIMDEC_WHEEL_PATH}" ]]; then
@@ -65,12 +64,12 @@ export PYTHONPATH="${ROOT_DIR}/src:${PYTHONPATH:-}"
 
 # Use the full path for the requirements so the converter can find the file
 "${PYTHON_BIN}" -m panel convert \
-  "${ROOT_DIR}/panel/simdec_app.py" \
-  "${ROOT_DIR}/panel/sampling.py" \
-  --to pyodide-worker \
-  --out "${OUT_DIR}" \
-  --requirements "${SIMDEC_WHEEL_PATH}" numpy pandas matplotlib seaborn scipy SALib \
-  --resources "${ROOT_DIR}/panel/data/stress.csv"
+    "${ROOT_DIR}/panel/simdec_app.py" \
+    "${ROOT_DIR}/panel/sampling.py" \
+    --to pyodide-worker \
+    --out "${ROOT_DIR}/${OUT_DIR}" \
+    --requirements "${ROOT_DIR}/${SIMDEC_WHEEL_PATH}" numpy pandas matplotlib seaborn scipy SALib \
+    --resources "${ROOT_DIR}/panel/data/stress.csv"
 
 # Copy custom index page and static assets
 echo "Copying custom index page and static assets..."
