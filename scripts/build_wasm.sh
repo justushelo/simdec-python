@@ -50,6 +50,8 @@ WHEEL_FILENAME=$(basename "${SIMDEC_WHEEL_PATH}")
 # Prepare output directory
 OUT_DIR="dist/pyodide"
 mkdir -p "${OUT_DIR}/_static"
+mkdir -p "${OUT_DIR}/data"
+mkdir -p "${OUT_DIR}/panel/data"
 
 # Copy the wheel into the output directory so it's accessible via HTTP
 cp "${SIMDEC_WHEEL_PATH}" "${OUT_DIR}/"
