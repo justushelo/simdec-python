@@ -19,7 +19,7 @@ blue_color = "#4099da"
 template = pn.template.FastGridTemplate(
     title="Data generation (sampling)",
     # logo="_static/logo.gif",
-    favicon="_static/favicon.png",
+    # favicon="_static/favicon.png",
     meta_description="Data generation (sampling)",
     meta_keywords=(
         "Random Sampling, Monte Carlo, Quasi-Monte Carlo, " "Sobol', Halton, LHS"
