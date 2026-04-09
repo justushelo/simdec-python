@@ -66,18 +66,22 @@ if [ -d "docs/_static" ]; then
   cp -r docs/_static/* panel/_static/
 fi
 
-# Convert Panel apps to Pyodide worker
 echo "Converting Panel apps to Pyodide worker output..."
 export PYTHONPATH="${ROOT_DIR}/src:${PYTHONPATH:-}"
 
-# Use clean, relative paths so Panel mirrors the directory structure correctly
+# Change directory into 'panel' so relative paths resolve correctly!
+cd "${ROOT_DIR}/panel"
+
 "${PYTHON_BIN}" -m panel convert \
-    panel/simdec_app.py \
-    panel/sampling.py \
+    simdec_app.py \
+    sampling.py \
     --to pyodide-worker \
-    --out "${OUT_DIR}" \
-    --requirements "${SIMDEC_WHEEL_PATH}" numpy pandas matplotlib seaborn scipy SALib \
-    --resources panel/data/stress.csv
+    --out "${ROOT_DIR}/${OUT_DIR}" \
+    --requirements "${ROOT_DIR}/${SIMDEC_WHEEL_PATH}" numpy pandas matplotlib seaborn scipy SALib \
+    --resources data/stress.csv
+
+# Step back out to the root directory for the rest of the script
+cd "${ROOT_DIR}"
 
 # Copy custom index page and static assets
 echo "Copying custom index page and static assets..."
