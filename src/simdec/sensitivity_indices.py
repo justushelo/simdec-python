@@ -1,11 +1,144 @@
 from dataclasses import dataclass
+import warnings
 
 import numpy as np
 import pandas as pd
-from scipy import stats
-
 
 __all__ = ["sensitivity_indices"]
+
+try:
+    from IPython.display import display
+
+    HAS_IPYTHON = True
+except ImportError:
+    HAS_IPYTHON = False
+
+
+def magic_binning(x: np.ndarray, n_bins_default: int) -> tuple[np.ndarray, int]:
+    """
+    Python equivalent of the MATLAB magic_binning function.
+    Uses equal-frequency binning, groups identical values, and handles NaNs.
+    """
+
+    is_nan = np.isnan(x)
+    not_nan_x = x[~is_nan]
+
+    idx_sorted = np.argsort(not_nan_x)
+    x_sorted = not_nan_x[idx_sorted]
+    n_valid = len(x_sorted)
+
+    bin_idx_valid = np.zeros(n_valid, dtype=int)
+
+    unique_vals = np.unique(x_sorted)
+    if len(unique_vals) <= n_bins_default:
+        _, bin_idx_valid = np.unique(
+            x_sorted, return_inverse=True
+        )  # x_sorted, not not_nan_x
+        bin_idx_valid += 1
+    else:
+        min_bin_size = n_valid // n_bins_default
+        remaining_size = n_valid
+        current_edge_idx = min_bin_size - 1  # 0-based index
+
+        b = 1
+        start_idx = 0
+
+        while b <= n_bins_default:
+            current_bin_size = min_bin_size
+
+            # While the edge is between identical values, move one element further
+            while (current_edge_idx < n_valid - 1) and (
+                x_sorted[current_edge_idx + 1] == x_sorted[current_edge_idx]
+            ):
+                current_edge_idx += 1
+                current_bin_size += 1
+
+            # Assign bin indices
+            bin_idx_valid[start_idx : current_edge_idx + 1] = b
+            remaining_size -= current_bin_size
+
+            # Break if not enough elements left for two distinct bins
+            if remaining_size < min_bin_size * 2:
+                bin_idx_valid[current_edge_idx + 1 :] = b + 1
+                break
+
+            start_idx = current_edge_idx + 1
+            current_edge_idx += min_bin_size
+            b += 1
+
+    bin_idx_valid_orig_order = np.zeros(n_valid, dtype=int)
+    bin_idx_valid_orig_order[idx_sorted] = bin_idx_valid
+
+    # NaNs back in (NaNs get bin 0)
+    bin_idx = np.zeros(len(x), dtype=int)
+    bin_idx[~is_nan] = bin_idx_valid_orig_order
+
+    n_bins_out = np.max(bin_idx) if len(bin_idx) > 0 else 0
+
+    return bin_idx, n_bins_out
+
+
+def bin_data_1d(
+    x: np.ndarray, y: np.ndarray, n_bins_default: int
+) -> tuple[np.ndarray, np.ndarray]:
+    bin_idx, n_bins_x = magic_binning(x, n_bins_default)
+
+    bin_avg = np.full(n_bins_x, np.nan)
+    bin_count = np.full(n_bins_x, np.nan)
+
+    for b in range(1, n_bins_x + 1):
+        mask = bin_idx == b
+        if np.any(mask):
+            bin_avg[b - 1] = np.mean(y[mask])
+            bin_count[b - 1] = np.sum(mask)
+
+    return bin_avg, bin_count
+
+
+def bin_data_2d(xi: np.ndarray, xj: np.ndarray, y: np.ndarray, n_bins_default: int):
+    bin_idx_i, n_bins_i = magic_binning(xi, n_bins_default)
+    bin_idx_j, n_bins_j = magic_binning(xj, n_bins_default)
+
+    bin_avg_ij = np.full((n_bins_i, n_bins_j), np.nan)
+    bin_count_ij = np.full((n_bins_i, n_bins_j), np.nan)
+    bin_avg_i = np.full(n_bins_i, np.nan)
+    bin_count_i = np.full(n_bins_i, np.nan)
+    bin_avg_j = np.full(n_bins_j, np.nan)
+    bin_count_j = np.full(n_bins_j, np.nan)
+
+    for n in range(1, n_bins_i + 1):
+        mask_i = bin_idx_i == n
+        if np.any(mask_i):
+            bin_avg_i[n - 1] = np.mean(y[mask_i])
+            bin_count_i[n - 1] = np.sum(mask_i)
+
+    for m in range(1, n_bins_j + 1):
+        mask_j = bin_idx_j == m
+        if np.any(mask_j):
+            bin_avg_j[m - 1] = np.mean(y[mask_j])
+            bin_count_j[m - 1] = np.sum(mask_j)
+
+    for n in range(1, n_bins_i + 1):
+        for m in range(1, n_bins_j + 1):
+            mask_ij = (bin_idx_i == n) & (bin_idx_j == m)
+            if np.any(mask_ij):
+                bin_avg_ij[n - 1, m - 1] = np.mean(y[mask_ij])
+                bin_count_ij[n - 1, m - 1] = np.sum(mask_ij)
+
+    # Flatten the 2D matrices and exclude NaNs (empty bins)
+    bin_avg_ij_flat = bin_avg_ij.flatten()
+    bin_count_ij_flat = bin_count_ij.flatten()
+
+    valid = ~np.isnan(bin_avg_ij_flat)
+
+    return (
+        bin_avg_ij_flat[valid],
+        bin_count_ij_flat[valid],
+        bin_avg_i,
+        bin_count_i,
+        bin_avg_j,
+        bin_count_j,
+    )
 
 
 def number_of_bins(n_runs: int, n_factors: int) -> tuple[int, int]:
@@ -135,17 +268,10 @@ def sensitivity_indices(
         # 1. First-order effects (FOE)
         xi = inputs[:, i]
 
-        bin_avg, _, binnumber = stats.binned_statistic(
-            x=xi, values=output, bins=n_bins_foe, statistic="mean"
-        )
+        bin_avg, bin_count = bin_data_1d(xi, output, int(n_bins_foe))
 
-        # Filter empty bins and get weights (counts)
-        mask_foe = ~np.isnan(bin_avg)
-        mean_i_foe = bin_avg[mask_foe]
-        # binnumber starts at 1; 0 is for values outside range
-        bin_counts_foe = np.unique(binnumber[binnumber > 0], return_counts=True)[1]
-
-        foe[i] = _weighted_var(mean_i_foe, weights=bin_counts_foe) / var_y
+        valid_foe = ~np.isnan(bin_avg)
+        foe[i] = _weighted_var(bin_avg[valid_foe], weights=bin_count[valid_foe]) / var_y
 
         # 2. Second-order effects (SOE)
         for j in range(n_factors):
@@ -154,37 +280,25 @@ def sensitivity_indices(
 
             xj = inputs[:, j]
 
-            # 2D Binned Statistic for Var(E[Y|Xi, Xj])
-            bin_avg_ij, x_edges, y_edges, binnumber_ij = stats.binned_statistic_2d(
-                x=xi, y=xj, values=output, bins=n_bins_soe, expand_binnumbers=False
-            )
+            # Second-order effects (SOE) with magic_binning
+            (
+                bin_avg_ij,
+                bin_count_ij,
+                bin_avg_i,
+                bin_count_i,
+                bin_avg_j,
+                bin_count_j,
+            ) = bin_data_2d(xi, xj, output, int(n_bins_soe))
 
-            mask_ij = ~np.isnan(bin_avg_ij)
-            mean_ij = bin_avg_ij[mask_ij]
-            counts_ij = np.unique(binnumber_ij[binnumber_ij > 0], return_counts=True)[1]
-            var_ij = _weighted_var(mean_ij, weights=counts_ij)
+            var_ij = _weighted_var(bin_avg_ij, weights=bin_count_ij)
 
-            # Marginal Var(E[Y|Xi]) using n_bins_soe to match MATLAB logic
-            bin_avg_i_soe, _, binnumber_i_soe = stats.binned_statistic(
-                x=xi, values=output, bins=n_bins_soe, statistic="mean"
-            )
-            mask_i = ~np.isnan(bin_avg_i_soe)
-            counts_i = np.unique(
-                binnumber_i_soe[binnumber_i_soe > 0], return_counts=True
-            )[1]
-            var_i_soe = _weighted_var(bin_avg_i_soe[mask_i], weights=counts_i)
+            valid_i = ~np.isnan(bin_avg_i)
+            var_i = _weighted_var(bin_avg_i[valid_i], weights=bin_count_i[valid_i])
 
-            # Marginal Var(E[Y|Xj]) using n_bins_soe to match MATLAB logic
-            bin_avg_j_soe, _, binnumber_j_soe = stats.binned_statistic(
-                x=xj, values=output, bins=n_bins_soe, statistic="mean"
-            )
-            mask_j = ~np.isnan(bin_avg_j_soe)
-            counts_j = np.unique(
-                binnumber_j_soe[binnumber_j_soe > 0], return_counts=True
-            )[1]
-            var_j_soe = _weighted_var(bin_avg_j_soe[mask_j], weights=counts_j)
+            valid_j = ~np.isnan(bin_avg_j)
+            var_j = _weighted_var(bin_avg_j[valid_j], weights=bin_count_j[valid_j])
 
-            soe[i, j] = (var_ij - var_i_soe - var_j_soe) / var_y
+            soe[i, j] = (var_ij - var_i - var_j) / var_y
 
     # Mirror SOE and calculate Combined Effect (SI)
     # SI is FOE + half of all interactions associated with that variable
@@ -193,11 +307,18 @@ def sensitivity_indices(
         si[k] = foe[k] + (soe[:, k].sum() / 2)
 
     if print_indices:
-        df_foe = pd.DataFrame(foe, index=var_names, columns=["First-order effect"])
-        df_soe = pd.DataFrame(soe, index=var_names, columns=var_names)
-        df_si = pd.DataFrame(si, index=var_names, columns=["Combined effect"])
+        if not HAS_IPYTHON:
+            warnings.warn(
+                "print_indices=True requires ipython to be installed. "
+                "Install it with: pip install simdec[display]. Table skipped.",
+                stacklevel=2,
+            )
+        else:
+            df_foe = pd.DataFrame(foe, index=var_names, columns=["First-order effect"])
+            df_soe = pd.DataFrame(soe, index=var_names, columns=var_names)
+            df_si = pd.DataFrame(si, index=var_names, columns=["Combined effect"])
 
-        df_indices = pd.concat([df_foe, df_soe, df_si], axis=1)
-        print(f"\n{df_indices}\n")
+            df_indices = pd.concat([df_foe, df_soe, df_si], axis=1)
+            display(df_indices)
 
     return SensitivityAnalysisResult(si, foe, soe)
